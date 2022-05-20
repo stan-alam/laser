@@ -15,7 +15,7 @@ This project can be broken down into the following components:
 		- `integration/` to demo integration testing
 - Multi-stage Docker Build for lightweight distribution
 	- The final build includes binary & tests (eg. self-proving)
-- Embedding frontend with go-bindata
+- Embedding a frontend with the builtin embed package
 	- Routing demonstrates hardcoded json response, template based page, and file-based delivery
 
 
@@ -53,8 +53,6 @@ In a CICD system:
 
 Working on adding functionality:
 
-- Add go-bindata and deliver files when no registered routes are found
-	- _refer to CDN hosted reactjs to reduce dependency load_
 - REST endpoints at `/api/service`
 	- _Add UI code to support REST endpoints_
 - fill out `cmd/integration` with test code that validates REST behavior
