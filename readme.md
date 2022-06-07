@@ -84,38 +84,36 @@ Further, anyone should be able to run the integration command against any enviro
 
 Working on adding functionality:
 
-- Try moving database abstraction to `/pkg/postgres`
-	- _verify logging works as intended (eg. force a syntax error), and I don't need to set logger configuration in the package._
-	- Move `XStorage` structures into this package
+- Move `cmd/integration` into `cmd/beam/integration`
+	- _integration tests are dependent on the binary produced, so putting it into `cmd/` directly was a mistake_
+- Move handlers and storage to `pkg/{api,postgres}`
+- Document the fact that `pkg/postgres` initialization helps control order dependent operations
+	- _for example, relational tables must be created after the tables they relate to, which is harder to control if kept loosely attached to each models storage component._
+- Rename to match model (_no longer need long-names_)
+- Abstract api from postgres dependencies via interfaces
+	- Add note to api login operation noting the pre/post handling could be added to secure
+		- pre-login rate limit and counter check, post-failure expiring counter increment
+			- something like redis would be best for this; using postgres gets messy/expensive
+	- _need to find best method to abstract Token from User with regards to Login_
+- Identify best pattern to combine token and user authentication operations
+	- _perhaps a composite model and interface expecting two independent operations?_
+- Update `cmd/beam` assembly to use the new `pkg` imports and assemble components
+	- _Utilize inversion-of-control from `pkg/api` to accept `httprouter` and attach routes_
+- new routes (replacing some old ones)
+	- `/oauth/token` used instead of `/login`; accepts Basic & Bearer authentication
+		- Bearer checks refresh token (eg. a hash /w base64 user prefix), _not a jwt_
+		- add another note that the base64 user prefix allows us to add access token rate-limiting
+	- `/oauth/revoke`; an alias to delete a refresh token, but which must check ownership?
+	- add `/services` and `/users` routes to demonstrate `html/template` stdlib package
+		- _render a basic html table of all results; pagination could be added in future iterations_
+		- _this is primarily to demonstrate server-side rendering as an alternative to react & api calls._
 
-- add `Token` struct, `TokenHandler` and `TokenStorage` to abstract token logic.
+- revisit auth behavior by adding shared secret based jwt validation wrapper
+	- _If no shared secret is provided use `crypto/rand` to generate one at launch_
+	- _we can add notes that keypair jwt is also possible, which would work for authentication with separated systems by exposing a `/public.key` route allowing third parties to validate our systems tokens._
 
-- Figure out how to combine token and user storage logic behind Auth structure to deal with token creation and selection...
 
-- replace `/login` with `/oauth/token`
-	- accept both Basic and Bearer
-		- _Expect Refresh Token if Bearer_
-	- If authentication is successful and no refresh token exists create one
-	- Respond with json `refresh_token` & `access_token`
-	- Add brute force protection mechanism
-		- _add failed login counter and failed login timestamp to table_
-		- _add exponential backoff condition based on counter & timestamp_
-		- _add query to update counter & timestamp on failed login attempt_
-		- _on successful login, reset counter & timestamp_
-
-- add `/oauth/revoke`
-	- access Bearer **refresh** token to delete from database
-
-- add `/services` and `/users` routes using the `html/template` stdlib package to render a table response
-	- _this is purely to demonstrate server-side rendering._
-
-- revisit `auth.go` by adding jwt validation wrapper
-	- _if no keypair is provided the project should generate one_
-	- _We can add a `/public.key` route to be used by third parties for JWT validation._
-
-- break out business logic from `cmd/beam` into `pkg/api` to demonstrate modular construction
-
-- define tests in `cmd/integration`
+- define tests in `cmd/beam/integration`
 	- _accept `ADDRESS` and `CREDENTIALS` env vars_
 		- _allows it to be run against any environment_
 		- _can use predefined credentials for testing_
@@ -124,9 +122,10 @@ Working on adding functionality:
 		- _pre-cleanup avoids canceled tests with leftover/orphaned resources_
 
 - begin writing reactjs into main.js to produce SPA UI
+	- _we can replace server-side rendered pages_
 
 
-## temporary commands
+## developer reference commands
 
 Curl to create a user:
 
@@ -149,9 +148,7 @@ _Substitute with username and password stored in the database or it will fail wi
 
 # refrences
 
-- [
-Refresh Tokens
-](https://www.oauth.com/oauth2-servers/making-authenticated-requests/refreshing-an-access-token/)
+- [Refresh Tokens](https://www.oauth.com/oauth2-servers/making-authenticated-requests/refreshing-an-access-token/)
 
 Sample json response from Refresh Tokens reference:
 
@@ -165,3 +162,37 @@ Sample json response from Refresh Tokens reference:
 _Not sure if passing expires matters, since the service has to detect expired tokens from 401 response anyways._
 
 - [Storing Passwords Securely With PostgreSQL and Pgcrypto](https://x-team.com/blog/storing-secure-passwords-with-postgresql/)
+
+
+---
+
+Just adding a note here that I did try to write a modified Users table and query that could conditionally update a timestamp and counter to deal with failed logins, but there was no sane way to pull tokens using it, and the query itself was pretty ugly to look at:
+
+	UPDATE users SET
+		failed_logins = sq.new_failed_logins,
+		failed_login_at = sq.new_failed_login_at
+	FROM (SELECT
+	CASE WHEN failed_logins > 3
+		OR transaction_timestamp() < failed_login_at + (users.failed_logins * interval '1 minute')
+		OR password != crypt('abc123', password)
+		THEN failed_logins + 1
+		ELSE 0
+	END new_failed_logins,
+	CASE WHEN failed_logins > 3
+		OR transaction_timestamp() < failed_login_at + (users.failed_logins * interval '1 minute')
+		OR password != crypt('abc123', password)
+		THEN transaction_timestamp()
+		ELSE failed_login_at
+	END new_failed_login_at,
+	CASE WHEN failed_logins > 3
+		OR transaction_timestamp() < failed_login_at + (users.failed_logins * interval '1 minute')
+		OR password != crypt('abc123', password)
+		THEN false
+		ELSE true
+	END success
+	FROM users
+	WHERE email = 'user@email.com') AS sq
+	WHERE email = 'user@email.com'
+	RETURNING sq.success;
+
+_To keep the SQL sane it would make far more sense to properly secure the login route with a redis or cache dbms system for performance and separate checks to rate limit or block on a number failed logins with an expiring counter, which is something redis has built-in support for._
