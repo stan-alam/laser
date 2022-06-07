@@ -14,6 +14,7 @@ type User struct {
 	getAll *sql.Stmt
 	update *sql.Stmt
 	delete *sql.Stmt
+	login  *sql.Stmt
 }
 
 func (u *User) Init(db *sql.DB) error {
@@ -34,8 +35,20 @@ func (u *User) Init(db *sql.DB) error {
 	} else if u.delete, err = u.db.Prepare(SQLUserDelete); err != nil {
 		log.Printf("failed to create prepared statement: %s", err)
 		return err
+	} else if u.login, err = u.db.Prepare(SQLUserLogin); err != nil {
+		log.Printf("failed to create prepared statement: %s", err)
+		return err
 	}
 	return err
+}
+
+func (u *User) Login(email, password string) (*laser.User, error) {
+	user := laser.User{}
+	if err := u.login.QueryRow(email, password).Scan(&user.Name, &user.Email, &user.Password); err != nil {
+		log.Printf("Login Failed: %s (%s)", email, err)
+		return nil, err
+	}
+	return &user, nil
 }
 
 func (u *User) Insert(user *laser.User) error {

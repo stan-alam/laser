@@ -84,21 +84,17 @@ Further, anyone should be able to run the integration command against any enviro
 
 Working on adding functionality:
 
-- Move `cmd/integration` into `cmd/beam/integration`
-	- _integration tests are dependent on the binary produced, so putting it into `cmd/` directly was a mistake_
-- Move handlers and storage to `pkg/{api,postgres}`
-- Document the fact that `pkg/postgres` initialization helps control order dependent operations
-	- _for example, relational tables must be created after the tables they relate to, which is harder to control if kept loosely attached to each models storage component._
-- Rename to match model (_no longer need long-names_)
-- Abstract api from postgres dependencies via interfaces
-	- Add note to api login operation noting the pre/post handling could be added to secure
-		- pre-login rate limit and counter check, post-failure expiring counter increment
-			- something like redis would be best for this; using postgres gets messy/expensive
-	- _need to find best method to abstract Token from User with regards to Login_
-- Identify best pattern to combine token and user authentication operations
-	- _perhaps a composite model and interface expecting two independent operations?_
+- identify best path to abstract without merging Token and User queries onto a single model
+	- _likely `pkg/api/auth.go`, either composite interface, or two separate abstractions._
+		- select user /w password check; add note regarding redis cache for security
+			- pre-login rate limiting and failed login counter checks
+			- post-failure auto-expiring counter increment
+		- pull token by username
+		- generate jwt and reply with combined struct (similar to reference)
 - Update `cmd/beam` assembly to use the new `pkg` imports and assemble components
 	- _Utilize inversion-of-control from `pkg/api` to accept `httprouter` and attach routes_
+	- Test whether log package imports in `pkg/*` still adhere to `package main` settings
+		- _as in the file name, line number, and timestamp should be printed._
 - new routes (replacing some old ones)
 	- `/oauth/token` used instead of `/login`; accepts Basic & Bearer authentication
 		- Bearer checks refresh token (eg. a hash /w base64 user prefix), _not a jwt_
