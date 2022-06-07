@@ -13,6 +13,7 @@ import (
 //        Init() function, which can return the standardized sql.DB.
 func Init(connString string) (*sql.DB, error) {
 	db, err := sql.Open("postgres", connString)
+	db.SetMaxOpenConns(MaxConnections)
 	if err != nil {
 		return nil, err
 	} else if tx, err := db.Begin(); err != nil {
