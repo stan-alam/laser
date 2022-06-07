@@ -36,12 +36,12 @@ func (t *Token) Insert(username string) (string, error) {
 	return id, err
 }
 
-func (t *Token) Select(id string) (*laser.Token, error) {
+func (t *Token) Select(username string) (*laser.Token, error) {
 	token := laser.Token{}
-	if err := t.get.QueryRow(id).Scan(&token.ID, &token.Username, &token.Created); err == sql.ErrNoRows {
+	if err := t.get.QueryRow(username).Scan(&token.ID, &token.Username, &token.Created); err == sql.ErrNoRows {
 		return nil, nil // @note: caller must check for nil model to address 404
 	} else if err != nil {
-		log.Printf("Select Failed: %s (%s)", id, err)
+		log.Printf("Select Failed: %s (%s)", username, err)
 		return nil, err
 	}
 	return &token, nil

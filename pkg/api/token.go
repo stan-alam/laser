@@ -11,7 +11,7 @@ import (
 )
 
 type Token struct {
-	Storage tokenStorage
+	storage tokenStorage
 }
 
 func (t *Token) Post(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
@@ -25,7 +25,7 @@ func (t *Token) Post(w http.ResponseWriter, r *http.Request, ps httprouter.Param
 		return
 	}
 
-	if _, err := t.Storage.Insert(token.Username); err != nil {
+	if _, err := t.storage.Insert(token.Username); err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
@@ -34,8 +34,8 @@ func (t *Token) Post(w http.ResponseWriter, r *http.Request, ps httprouter.Param
 }
 
 func (t *Token) Get(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-	id := ps.ByName("id")
-	token, err := t.Storage.Select(id)
+	username := ps.ByName("username")
+	token, err := t.storage.Select(username)
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
@@ -48,7 +48,7 @@ func (t *Token) Get(w http.ResponseWriter, r *http.Request, ps httprouter.Params
 
 func (t *Token) Delete(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	id := ps.ByName("id")
-	if t.Storage.Delete(id) != nil {
+	if t.storage.Delete(id) != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}

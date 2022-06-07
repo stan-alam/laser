@@ -11,7 +11,7 @@ import (
 )
 
 type User struct {
-	Storage userStorage
+	storage userStorage
 }
 
 func (h *User) Post(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
@@ -38,7 +38,7 @@ func (h *User) Post(w http.ResponseWriter, r *http.Request, ps httprouter.Params
 	// 	Password: r.Form.Get("password"),
 	// }
 
-	if h.Storage.Insert(&user) != nil {
+	if h.storage.Insert(&user) != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
@@ -49,7 +49,7 @@ func (h *User) Post(w http.ResponseWriter, r *http.Request, ps httprouter.Params
 func (h *User) GetOne(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	id := ps.ByName("id")
 
-	user, err := h.Storage.SelectOne(id)
+	user, err := h.storage.SelectOne(id)
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
@@ -65,7 +65,7 @@ func (h *User) GetOne(w http.ResponseWriter, r *http.Request, ps httprouter.Para
 }
 
 func (h *User) Get(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-	users, err := h.Storage.Select()
+	users, err := h.storage.Select()
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
@@ -87,7 +87,7 @@ func (h *User) Put(w http.ResponseWriter, r *http.Request, ps httprouter.Params)
 		return
 	}
 
-	if err := h.Storage.Update(&user); err != nil {
+	if err := h.storage.Update(&user); err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
@@ -97,7 +97,7 @@ func (h *User) Put(w http.ResponseWriter, r *http.Request, ps httprouter.Params)
 
 func (h *User) Delete(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	id := ps.ByName("id")
-	if h.Storage.Delete(id) != nil {
+	if h.storage.Delete(id) != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}

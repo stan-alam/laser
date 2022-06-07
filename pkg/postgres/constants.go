@@ -46,7 +46,7 @@ const (
 	SQLServicesSelect = `SELECT * FROM services;`
 
 	SQLTokenInsert = `INSERT INTO tokens (username) VALUES ($1) RETURNING id;`
-	SQLTokenSelect = `SELECT id, username, created FROM tokens WHERE id = $1;`
+	SQLTokenSelect = `SELECT id, username, created FROM tokens WHERE username = $1 LIMIT 1;`
 	SQLTokenDelete = `DELETE FROM tokens WHERE id = $1;`
 
 	MaxConnections int = 40

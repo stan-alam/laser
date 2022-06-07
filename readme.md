@@ -82,8 +82,6 @@ Further, anyone should be able to run the integration command against any enviro
 
 ## todo
 
-Working on adding functionality:
-
 - identify best path to abstract without merging Token and User queries onto a single model
 	- _likely `pkg/api/auth.go`, either composite interface, or two separate abstractions._
 		- select user /w password check; add note regarding redis cache for security
@@ -108,6 +106,11 @@ Working on adding functionality:
 	- _If no shared secret is provided use `crypto/rand` to generate one at launch_
 	- _we can add notes that keypair jwt is also possible, which would work for authentication with separated systems by exposing a `/public.key` route allowing third parties to validate our systems tokens._
 
+- Debatable cleanup tasks:
+	- do we move `cmd/beam/health.go` into `pkg/api/`?
+		- _probably not, too much cruft to build health struct, init for time tracking, and passing main.Version._
+	- do we abstract httprouter in `pkg/api`?
+		- _probably not, the behavior differs too much_
 
 - define tests in `cmd/beam/integration`
 	- _accept `ADDRESS` and `CREDENTIALS` env vars_
