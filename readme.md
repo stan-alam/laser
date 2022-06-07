@@ -82,35 +82,21 @@ Further, anyone should be able to run the integration command against any enviro
 
 ## todo
 
-- identify best path to abstract without merging Token and User queries onto a single model
-	- _likely `pkg/api/auth.go`, either composite interface, or two separate abstractions._
-		- select user /w password check; add note regarding redis cache for security
-			- pre-login rate limiting and failed login counter checks
-			- post-failure auto-expiring counter increment
-		- pull token by username
-		- generate jwt and reply with combined struct (similar to reference)
-- Update `cmd/beam` assembly to use the new `pkg` imports and assemble components
-	- _Utilize inversion-of-control from `pkg/api` to accept `httprouter` and attach routes_
-	- Test whether log package imports in `pkg/*` still adhere to `package main` settings
-		- _as in the file name, line number, and timestamp should be printed._
-- new routes (replacing some old ones)
-	- `/oauth/token` used instead of `/login`; accepts Basic & Bearer authentication
-		- Bearer checks refresh token (eg. a hash /w base64 user prefix), _not a jwt_
-		- add another note that the base64 user prefix allows us to add access token rate-limiting
-	- `/oauth/revoke`; an alias to delete a refresh token, but which must check ownership?
-	- add `/services` and `/users` routes to demonstrate `html/template` stdlib package
-		- _render a basic html table of all results; pagination could be added in future iterations_
-		- _this is primarily to demonstrate server-side rendering as an alternative to react & api calls._
-
-- revisit auth behavior by adding shared secret based jwt validation wrapper
-	- _If no shared secret is provided use `crypto/rand` to generate one at launch_
-	- _we can add notes that keypair jwt is also possible, which would work for authentication with separated systems by exposing a `/public.key` route allowing third parties to validate our systems tokens._
+- add `jwt` generation and abstraction to `pkg/api`
+	- add shared secret to `cmd/beam/config.go`
+		- if no secret exists, generate one using `crypto/rand`
+- define custom claims in `pkg/api` with permissions
+- add permission check wrapper, combined with cors wrapper to `pkg/api/auth.go`
 
 - Debatable cleanup tasks:
 	- do we move `cmd/beam/health.go` into `pkg/api/`?
 		- _probably not, too much cruft to build health struct, init for time tracking, and passing main.Version._
 	- do we abstract httprouter in `pkg/api`?
 		- _probably not, the behavior differs too much_
+	- do we move or replicate relevant documentation into `cmd/beam/readme.md`?
+	- do we swap shared secret for key pair jwt?
+		- _can generate keypair when not supplied_
+		- _can add `/public.key` route to allow external signature validation from separated systems._
 
 - define tests in `cmd/beam/integration`
 	- _accept `ADDRESS` and `CREDENTIALS` env vars_
@@ -124,74 +110,7 @@ Further, anyone should be able to run the integration command against any enviro
 	- _we can replace server-side rendered pages_
 
 
-## developer reference commands
-
-Curl to create a user:
-
-	curl -X POST -d "username=username&email=user@gmail.com&password=password" http://localhost:3000/register
-
-Can collect a refresh token:
-
-	REFRESH_TOKEN=$(curl -X POST -u username:password http://localhost:3000/login 2> /dev/null)
-
-Can send that refresh token to get an access token:
-
-	ACCESS_TOKEN=$(curl -h "Authorization: Refresh $REFRESH_TOKEN" http://localhost:3000/oauth/token)
-
-Can create a service using that access token:
-
-	curl -X POST -h "Authorization: Bearer $ACCESS_TOKEN" http://localhost:3000/api/service -d '{"name":"","technology":"go","poc":"user@email.com"}'
-
-_Substitute with username and password stored in the database or it will fail with 401._
-
-
 # refrences
 
 - [Refresh Tokens](https://www.oauth.com/oauth2-servers/making-authenticated-requests/refreshing-an-access-token/)
-
-Sample json response from Refresh Tokens reference:
-
-	{
-	  "access_token": "BWjcyMzY3ZDhiNmJkNTY",
-	  "refresh_token": "Srq2NjM5NzA2OWJjuE7c",
-	  "token_type": "Bearer",
-	  "expires": 3600
-	}
-
-_Not sure if passing expires matters, since the service has to detect expired tokens from 401 response anyways._
-
 - [Storing Passwords Securely With PostgreSQL and Pgcrypto](https://x-team.com/blog/storing-secure-passwords-with-postgresql/)
-
-
----
-
-Just adding a note here that I did try to write a modified Users table and query that could conditionally update a timestamp and counter to deal with failed logins, but there was no sane way to pull tokens using it, and the query itself was pretty ugly to look at:
-
-	UPDATE users SET
-		failed_logins = sq.new_failed_logins,
-		failed_login_at = sq.new_failed_login_at
-	FROM (SELECT
-	CASE WHEN failed_logins > 3
-		OR transaction_timestamp() < failed_login_at + (users.failed_logins * interval '1 minute')
-		OR password != crypt('abc123', password)
-		THEN failed_logins + 1
-		ELSE 0
-	END new_failed_logins,
-	CASE WHEN failed_logins > 3
-		OR transaction_timestamp() < failed_login_at + (users.failed_logins * interval '1 minute')
-		OR password != crypt('abc123', password)
-		THEN transaction_timestamp()
-		ELSE failed_login_at
-	END new_failed_login_at,
-	CASE WHEN failed_logins > 3
-		OR transaction_timestamp() < failed_login_at + (users.failed_logins * interval '1 minute')
-		OR password != crypt('abc123', password)
-		THEN false
-		ELSE true
-	END success
-	FROM users
-	WHERE email = 'user@email.com') AS sq
-	WHERE email = 'user@email.com'
-	RETURNING sq.success;
-
-_To keep the SQL sane it would make far more sense to properly secure the login route with a redis or cache dbms system for performance and separate checks to rate limit or block on a number failed logins with an expiring counter, which is something redis has built-in support for._
